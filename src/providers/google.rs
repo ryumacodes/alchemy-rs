@@ -160,12 +160,15 @@ fn build_params(
         generation_config.insert("maxOutputTokens".to_string(), json!(max_tokens));
     }
 
-    if !generation_config.is_empty() {
-        params["generationConfig"] = serde_json::Value::Object(generation_config);
+    if model.reasoning {
+        generation_config.insert(
+            "thinkingConfig".to_string(),
+            json!({ "includeThoughts": true }),
+        );
     }
 
-    if model.reasoning {
-        params["thinkingConfig"] = json!({ "includeThoughts": true });
+    if !generation_config.is_empty() {
+        params["generationConfig"] = serde_json::Value::Object(generation_config);
     }
 
     if let Some(tools) = &context.tools {
@@ -511,7 +514,7 @@ mod tests {
 
     fn make_model(reasoning: bool) -> Model<GoogleGenerativeAi> {
         Model {
-            id: "gemini-2.5-flash-latest".to_string(),
+            id: "gemini-2.5-flash".to_string(),
             name: "Gemini 2.5 Flash".to_string(),
             api: GoogleGenerativeAi,
             provider: Provider::Known(KnownProvider::Google),
@@ -547,7 +550,7 @@ mod tests {
             content: vec![],
             api: Api::GoogleGenerativeAi,
             provider: Provider::Known(KnownProvider::Google),
-            model: "gemini-2.5-flash-latest".to_string(),
+            model: "gemini-2.5-flash".to_string(),
             usage: Usage::default(),
             stop_reason: StopReason::Stop,
             error_message: None,
@@ -619,7 +622,10 @@ mod tests {
 
         let params = build_params(&model, &context, &options);
 
-        assert_eq!(params["thinkingConfig"]["includeThoughts"], true);
+        assert_eq!(
+            params["generationConfig"]["thinkingConfig"]["includeThoughts"],
+            true
+        );
     }
 
     #[test]
@@ -630,7 +636,10 @@ mod tests {
 
         let params = build_params(&model, &context, &options);
 
-        assert!(params.get("thinkingConfig").is_none());
+        assert!(params
+            .get("generationConfig")
+            .and_then(|gc| gc.get("thinkingConfig"))
+            .is_none());
     }
 
     #[test]
@@ -791,10 +800,10 @@ mod tests {
 
     #[test]
     fn build_streaming_url_constructs_correct_path() {
-        let url = build_streaming_url(TEST_BASE_URL, "gemini-2.5-flash-latest");
+        let url = build_streaming_url(TEST_BASE_URL, "gemini-2.5-flash");
         assert_eq!(
             url,
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:streamGenerateContent?alt=sse"
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"
         );
     }
 
@@ -807,7 +816,7 @@ mod tests {
             ],
             api: Api::GoogleGenerativeAi,
             provider: Provider::Known(KnownProvider::Google),
-            model: "gemini-2.5-flash-latest".to_string(),
+            model: "gemini-2.5-flash".to_string(),
             usage: Usage::default(),
             stop_reason: StopReason::Stop,
             error_message: None,
@@ -874,7 +883,7 @@ mod tests {
 
         assert_eq!(result.api, Api::GoogleGenerativeAi);
         assert_eq!(result.provider, Provider::Known(KnownProvider::Google));
-        assert_eq!(result.model, "gemini-2.5-flash-latest");
+        assert_eq!(result.model, "gemini-2.5-flash");
         assert_eq!(result.stop_reason, StopReason::Stop);
         assert_eq!(result.usage.total_tokens, 15);
     }

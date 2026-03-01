@@ -32,18 +32,12 @@ fn build_google_model(
 }
 
 pub fn gemini_2_5_pro() -> Model<GoogleGenerativeAi> {
-    build_google_model(
-        "gemini-2.5-pro-latest",
-        "Gemini 2.5 Pro",
-        true,
-        1_048_576,
-        65_536,
-    )
+    build_google_model("gemini-2.5-pro", "Gemini 2.5 Pro", true, 1_048_576, 65_536)
 }
 
 pub fn gemini_2_5_flash() -> Model<GoogleGenerativeAi> {
     build_google_model(
-        "gemini-2.5-flash-latest",
+        "gemini-2.5-flash",
         "Gemini 2.5 Flash",
         true,
         1_048_576,
@@ -53,7 +47,7 @@ pub fn gemini_2_5_flash() -> Model<GoogleGenerativeAi> {
 
 pub fn gemini_2_5_flash_lite() -> Model<GoogleGenerativeAi> {
     build_google_model(
-        "gemini-2.5-flash-lite-latest",
+        "gemini-2.5-flash-lite",
         "Gemini 2.5 Flash Lite",
         false,
         1_048_576,

@@ -38,9 +38,9 @@ All built-in Gemini models:
 
 | Constructor | Model ID | Reasoning | Context | Max Output |
 |---|---|---|---|---|
-| `gemini_2_5_pro()` | `gemini-2.5-pro-latest` | yes | 1,048,576 | 65,536 |
-| `gemini_2_5_flash()` | `gemini-2.5-flash-latest` | yes | 1,048,576 | 65,536 |
-| `gemini_2_5_flash_lite()` | `gemini-2.5-flash-lite-latest` | no | 1,048,576 | 65,536 |
+| `gemini_2_5_pro()` | `gemini-2.5-pro` | yes | 1,048,576 | 65,536 |
+| `gemini_2_5_flash()` | `gemini-2.5-flash` | yes | 1,048,576 | 65,536 |
+| `gemini_2_5_flash_lite()` | `gemini-2.5-flash-lite` | no | 1,048,576 | 65,536 |
 | `gemini_2_0_flash()` | `gemini-2.0-flash` | no | 1,048,576 | 8,192 |
 
 ## Request Semantics

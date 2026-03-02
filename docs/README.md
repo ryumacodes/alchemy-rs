@@ -17,20 +17,27 @@ read_when:
 ## Provider Guides
 
 - [providers/minimax.md](./providers/minimax.md) - First-class MiniMax provider (global + CN)
+- [providers/zai.md](./providers/zai.md) - First-class z.ai GLM provider
 
 ## Utilities
 
 - [utils/transform.md](./utils/transform.md) - Cross-provider conversation transformation
 
-## Latest Release (0.1.5)
+## Latest Release (0.1.6)
 
-The latest published crate release adds first-class tool-call ID typing and cross-provider smoke coverage:
+The latest published crate release focuses on MiniMax streamed tool-call correctness:
 
-- New canonical `ToolCallId` type (`src/types/tool_call_id.rs`)
-- `ToolCall.id` and `ToolResultMessage.tool_call_id` now use `ToolCallId`
-- Unified cross-provider smoke flow for OpenRouter + MiniMax + Chutes
-- Full typed stream/event output in `smokescripts/run_tool_call_unified_types.sh`
+- Interleaved tool-call argument deltas are now merged reliably
+- Id-less continuation chunks are handled consistently in the shared stream parser
+- Regression tests cover continuation + reasoning/text interleave scenarios
 
-For release details, see [../CHANGELOG.md](../CHANGELOG.md#015---2026-02-21).
+For release details, see [../CHANGELOG.md](../CHANGELOG.md#016---2026-02-21).
 
-For MiniMax-specific documentation from the previous release train, see [providers/minimax.md](./providers/minimax.md).
+## Main Branch Updates (post-0.1.6)
+
+- New first-class z.ai provider path (`Api::ZaiCompletions`)
+- New built-in GLM model constructors in `src/models/zai.rs`
+- New z.ai examples:
+  - `examples/zai_glm_simple_chat.rs`
+  - `examples/zai_glm_tool_call_smoke.rs`
+- Architecture boundary checks via ast-grep rules in `rules/`

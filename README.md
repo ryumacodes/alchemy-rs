@@ -25,8 +25,9 @@ A unified LLM API abstraction layer in Rust that supports 10+ providers through 
 - **Groq**
 - **Cerebras**
 - **OpenRouter**
+- **z.ai** (GLM)
 
-> Current first-class streaming implementations in Rust: **OpenAI Completions** and **MiniMax Completions**. Other provider APIs are being ported incrementally.
+> Current first-class streaming implementations in Rust: **OpenAI Completions**, **MiniMax Completions**, and **z.ai Completions**. Other provider APIs are being ported incrementally.
 
 ## Features
 
@@ -106,11 +107,20 @@ async fn main() -> alchemy_llm::Result<()> {
 
 - **Crate:** [alchemy-llm on crates.io](https://crates.io/crates/alchemy-llm)
 - **Docs:** [docs.rs/alchemy-llm](https://docs.rs/alchemy-llm)
-- Current version: `0.1.5`
-- Release notes: [CHANGELOG.md](./CHANGELOG.md#015---2026-02-21)
+- Current version: `0.1.6`
+- Release notes: [CHANGELOG.md](./CHANGELOG.md#016---2026-02-21)
 - Highlights:
-  - Add first-class `ToolCallId` type for unified tool-call identity
-  - Add cross-provider tool-call smoke flow (OpenRouter, MiniMax, Chutes) with full typed response output
+  - Fix MiniMax streamed tool-call argument continuation across interleaved chunks
+  - Add regression coverage for MiniMax/id-less tool-call continuation handling
+
+## Main Branch Updates (post-0.1.6)
+
+- First-class z.ai GLM provider via `Api::ZaiCompletions`
+- Built-in GLM constructors (`glm_5`, `glm_4_7`, `glm_4_5_*`, etc.)
+- New live examples:
+  - `examples/zai_glm_simple_chat.rs`
+  - `examples/zai_glm_tool_call_smoke.rs`
+- Ast-grep architecture boundary checks under `rules/` (`make ast-rules`)
 
 ## Setup
 
@@ -151,11 +161,15 @@ async fn main() -> alchemy_llm::Result<()> {
 | `minimax_live_reasoning_split` | Live MiniMax stream with `reasoning_split` enabled |
 | `minimax_live_inline_think` | Live MiniMax stream exercising `<think>` fallback parsing |
 | `minimax_live_usage_chunk` | Live MiniMax final message + usage summary |
+| `zai_glm_simple_chat` | Live z.ai GLM chat with thinking/text event output |
+| `zai_glm_tool_call_smoke` | Live z.ai GLM tool-call smoke for unified tool events |
+| `tool_call_unified_types_smoke` | Cross-provider typed tool-call stream/output smoke |
 
 ## Documentation
 
 - [docs/README.md](./docs/README.md) - Documentation index
 - [docs/providers/minimax.md](./docs/providers/minimax.md) - MiniMax provider guide
+- [docs/providers/zai.md](./docs/providers/zai.md) - z.ai GLM provider guide
 - [docs/api/lib.md](./docs/api/lib.md) - Public API surface
 - [docs/utils/transform.md](./docs/utils/transform.md) - Message transformation guide
 
@@ -172,10 +186,11 @@ Pre-commit hooks automatically run:
 
 Run all quality checks:
 ```bash
-make quality-full     # All checks including complexity and duplicates
+make quality-full     # All checks including complexity, duplicates, and ast-rules
 make quality-quick    # Fast checks (fmt, clippy, check)
 make complexity       # Cyclomatic complexity analysis
 make duplicates       # Duplicate code detection
+make ast-rules        # Ast-grep architecture boundary checks
 ```
 
 Or run individually:
@@ -183,11 +198,13 @@ Or run individually:
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo check --all-targets --all-features
+make ast-rules
 ```
 
 **Tools used:**
 - **Clippy** - Cognitive complexity warnings (threshold: 20)
 - **polydup** - Duplicate code detection (install: `cargo install polydup-cli`)
+- **ast-grep (`sg`)** - Architecture boundary checks (`make ast-rules`)
 
 ## License
 

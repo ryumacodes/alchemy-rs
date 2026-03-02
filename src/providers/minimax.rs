@@ -10,9 +10,9 @@ use super::shared::{
     OpenAiLikeMessageOptions, OpenAiLikeStreamUsage, OpenAiLikeToolCallDelta, ReasoningDelta,
     SystemPromptRole,
 };
-use crate::stream::{AssistantMessageEventStream, EventStreamSender};
 use crate::types::{
-    Api, AssistantMessage, AssistantMessageEvent, Context, MinimaxCompletions, Model,
+    Api, AssistantMessage, AssistantMessageEvent, AssistantMessageEventStream, Context,
+    EventStreamSender, MinimaxCompletions, Model,
 };
 use crate::utils::{ThinkFragment, ThinkTagParser};
 
@@ -110,11 +110,11 @@ fn build_params(
     context: &Context,
     options: &OpenAICompletionsOptions,
 ) -> serde_json::Value {
-    let message_options = OpenAiLikeMessageOptions {
-        system_role: SystemPromptRole::System,
-        requires_tool_result_name: false,
-        assistant_thinking_mode: AssistantThinkingMode::ThinkTags,
-    };
+    let message_options = OpenAiLikeMessageOptions::openai_like(
+        SystemPromptRole::System,
+        false,
+        AssistantThinkingMode::ThinkTags,
+    );
 
     let mut params = json!({
         "model": model.id,

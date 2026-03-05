@@ -1,7 +1,9 @@
 use serde::Deserialize;
 
-use crate::stream::EventStreamSender;
-use crate::types::{AssistantMessage, AssistantMessageEvent, Content, StopReason, ToolCall, Usage};
+use crate::types::{
+    AssistantMessage, AssistantMessageEvent, Content, EventStreamSender, StopReason, ToolCall,
+    Usage,
+};
 
 #[derive(Debug)]
 pub(crate) enum CurrentBlock {
@@ -34,6 +36,27 @@ pub(crate) struct OpenAiLikeToolCallDelta {
 pub(crate) struct OpenAiLikeFunctionDelta {
     pub name: Option<String>,
     pub arguments: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "TDelta: Deserialize<'de>"))]
+pub(crate) struct OpenAiLikeStreamChunk<TDelta> {
+    #[serde(default)]
+    pub choices: Vec<OpenAiLikeStreamChoice<TDelta>>,
+    pub usage: Option<OpenAiLikeStreamUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "TDelta: Deserialize<'de>"))]
+pub(crate) struct OpenAiLikeStreamChoice<TDelta> {
+    pub delta: Option<TDelta>,
+    pub finish_reason: Option<String>,
+}
+
+pub(crate) struct OpenAiLikeChunkPrelude<'a, TDelta> {
+    pub delta: &'a TDelta,
+    tool_calls: Option<&'a [OpenAiLikeToolCallDelta]>,
+    prioritize_tool_calls: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,6 +165,61 @@ pub(crate) fn update_usage_from_chunk(
             total: cost_total,
         },
     };
+}
+
+pub(crate) fn prepare_openai_like_chunk<'a, TDelta, FStopReason, FToolCalls>(
+    chunk: &'a OpenAiLikeStreamChunk<TDelta>,
+    output: &mut AssistantMessage,
+    sender: &mut EventStreamSender,
+    current_block: &mut Option<CurrentBlock>,
+    map_stop_reason: FStopReason,
+    delta_tool_calls: FToolCalls,
+) -> Option<OpenAiLikeChunkPrelude<'a, TDelta>>
+where
+    FStopReason: Fn(&str) -> StopReason,
+    FToolCalls: Fn(&'a TDelta) -> Option<&'a [OpenAiLikeToolCallDelta]>,
+{
+    if let Some(usage) = &chunk.usage {
+        update_usage_from_chunk(usage, output);
+    }
+
+    let choice = chunk.choices.first()?;
+
+    if let Some(reason) = &choice.finish_reason {
+        output.stop_reason = map_stop_reason(reason);
+    }
+
+    let delta = choice.delta.as_ref()?;
+    let tool_calls = delta_tool_calls(delta);
+    let prioritize_tool_calls =
+        matches!(current_block, Some(CurrentBlock::ToolCall { .. })) && tool_calls.is_some();
+
+    if prioritize_tool_calls {
+        if let Some(tool_call_deltas) = tool_calls {
+            handle_tool_calls(tool_call_deltas, output, sender, current_block);
+        }
+    }
+
+    Some(OpenAiLikeChunkPrelude {
+        delta,
+        tool_calls,
+        prioritize_tool_calls,
+    })
+}
+
+pub(crate) fn apply_deferred_tool_calls<TDelta>(
+    prelude: OpenAiLikeChunkPrelude<'_, TDelta>,
+    output: &mut AssistantMessage,
+    sender: &mut EventStreamSender,
+    current_block: &mut Option<CurrentBlock>,
+) {
+    if prelude.prioritize_tool_calls {
+        return;
+    }
+
+    if let Some(tool_call_deltas) = prelude.tool_calls {
+        handle_tool_calls(tool_call_deltas, output, sender, current_block);
+    }
 }
 
 pub(crate) fn handle_text_delta(
@@ -419,8 +497,7 @@ pub(crate) fn map_stop_reason(reason: &str) -> StopReason {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stream::AssistantMessageEventStream;
-    use crate::types::{Api, KnownProvider, Provider};
+    use crate::types::{Api, AssistantMessageEventStream, KnownProvider, Provider};
 
     fn make_output_message() -> AssistantMessage {
         AssistantMessage {

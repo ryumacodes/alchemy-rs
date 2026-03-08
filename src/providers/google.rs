@@ -67,13 +67,21 @@ async fn run_stream_inner(
     let params = build_params(model, context, options);
     let response = send_streaming_request(&client, &url, &params).await?;
 
-    sender.push(AssistantMessageEvent::Start { partial: output.clone() });
+    sender.push(AssistantMessageEvent::Start {
+        partial: output.clone(),
+    });
 
     let mut current_block: Option<CurrentBlock> = None;
     let mut tool_call_index: u32 = 0;
 
     process_sse_stream_no_done::<StreamChunk, _>(response, |chunk| {
-        process_chunk(&chunk, output, sender, &mut current_block, &mut tool_call_index);
+        process_chunk(
+            &chunk,
+            output,
+            sender,
+            &mut current_block,
+            &mut tool_call_index,
+        );
     })
     .await?;
 
@@ -99,7 +107,10 @@ fn build_client(
     merge_headers(&mut headers, model.headers.as_ref());
     merge_headers(&mut headers, options.headers.as_ref());
 
-    reqwest::Client::builder().default_headers(headers).build().map_err(crate::Error::from)
+    reqwest::Client::builder()
+        .default_headers(headers)
+        .build()
+        .map_err(crate::Error::from)
 }
 
 fn build_params(
@@ -128,9 +139,14 @@ fn build_params(
     }
 
     if let Some(tools) = &context.tools {
-        let decls: Vec<_> = tools.iter().map(|t| json!({
-            "name": t.name, "description": t.description, "parameters": t.parameters,
-        })).collect();
+        let decls: Vec<_> = tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "name": t.name, "description": t.description, "parameters": t.parameters,
+                })
+            })
+            .collect();
         params["tools"] = json!([{ "functionDeclarations": decls }]);
     }
 
@@ -147,43 +163,75 @@ fn build_params(
     params
 }
 
-fn convert_messages(model: &Model<GoogleGenerativeAi>, context: &Context) -> Vec<serde_json::Value> {
-    context.messages.iter().filter_map(|m| match m {
-        Message::User(u) => Some(convert_user_message(model, u)),
-        Message::Assistant(a) => convert_assistant_message(a),
-        Message::ToolResult(r) => Some(convert_tool_result(r)),
-    }).collect()
+fn convert_messages(
+    model: &Model<GoogleGenerativeAi>,
+    context: &Context,
+) -> Vec<serde_json::Value> {
+    context
+        .messages
+        .iter()
+        .filter_map(|m| match m {
+            Message::User(u) => Some(convert_user_message(model, u)),
+            Message::Assistant(a) => convert_assistant_message(a),
+            Message::ToolResult(r) => Some(convert_tool_result(r)),
+        })
+        .collect()
 }
 
-fn convert_user_message(model: &Model<GoogleGenerativeAi>, user: &crate::types::UserMessage) -> serde_json::Value {
+fn convert_user_message(
+    model: &Model<GoogleGenerativeAi>,
+    user: &crate::types::UserMessage,
+) -> serde_json::Value {
     let parts = match &user.content {
         UserContent::Text(text) => vec![json!({ "text": text })],
-        UserContent::Multi(blocks) => blocks.iter().filter_map(|b| match b {
-            UserContentBlock::Text(t) => Some(json!({ "text": t.text })),
-            UserContentBlock::Image(img) if model.input.contains(&InputType::Image) => Some(json!({
-                "inlineData": { "mimeType": img.mime_type, "data": img.to_base64() }
-            })),
-            UserContentBlock::Image(_) => None,
-        }).collect(),
+        UserContent::Multi(blocks) => blocks
+            .iter()
+            .filter_map(|b| match b {
+                UserContentBlock::Text(t) => Some(json!({ "text": t.text })),
+                UserContentBlock::Image(img) if model.input.contains(&InputType::Image) => {
+                    Some(json!({
+                        "inlineData": { "mimeType": img.mime_type, "data": img.to_base64() }
+                    }))
+                }
+                UserContentBlock::Image(_) => None,
+            })
+            .collect(),
     };
     json!({ "role": "user", "parts": parts })
 }
 
 fn convert_assistant_message(assistant: &AssistantMessage) -> Option<serde_json::Value> {
-    let parts: Vec<_> = assistant.content.iter().filter_map(|c| match c {
-        Content::Text { inner } if !inner.text.is_empty() => Some(json!({ "text": inner.text })),
-        Content::ToolCall { inner } => Some(json!({ "functionCall": { "name": inner.name, "args": inner.arguments } })),
-        _ => None,
-    }).collect();
+    let parts: Vec<_> = assistant
+        .content
+        .iter()
+        .filter_map(|c| match c {
+            Content::Text { inner } if !inner.text.is_empty() => {
+                Some(json!({ "text": inner.text }))
+            }
+            Content::ToolCall { inner } => {
+                Some(json!({ "functionCall": { "name": inner.name, "args": inner.arguments } }))
+            }
+            _ => None,
+        })
+        .collect();
     (!parts.is_empty()).then(|| json!({ "role": "model", "parts": parts }))
 }
 
 fn convert_tool_result(result: &crate::types::ToolResultMessage) -> serde_json::Value {
-    let text = result.content.iter().filter_map(|c| match c {
-        ToolResultContent::Text(t) => Some(t.text.clone()),
-        ToolResultContent::Image(_) => None,
-    }).collect::<Vec<_>>().join("\n");
-    let response = if result.is_error { json!({ "error": text }) } else { json!({ "result": text }) };
+    let text = result
+        .content
+        .iter()
+        .filter_map(|c| match c {
+            ToolResultContent::Text(t) => Some(t.text.clone()),
+            ToolResultContent::Image(_) => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let response = if result.is_error {
+        json!({ "error": text })
+    } else {
+        json!({ "result": text })
+    };
     json!({ "role": "user", "parts": [{ "functionResponse": { "name": result.tool_name, "response": response } }] })
 }
 
@@ -249,13 +297,17 @@ fn process_chunk(
         };
     }
 
-    let Some(candidate) = chunk.candidates.as_ref().and_then(|c| c.first()) else { return };
+    let Some(candidate) = chunk.candidates.as_ref().and_then(|c| c.first()) else {
+        return;
+    };
 
     if let Some(reason) = &candidate.finish_reason {
         output.stop_reason = map_stop_reason(reason);
     }
 
-    let Some(parts) = candidate.content.as_ref().and_then(|c| c.parts.as_ref()) else { return };
+    let Some(parts) = candidate.content.as_ref().and_then(|c| c.parts.as_ref()) else {
+        return;
+    };
 
     let mut saw_function_call = false;
     for part in parts {
@@ -264,17 +316,37 @@ fn process_chunk(
             finish_current_block(current_block, output, sender);
             let id = format!("{TOOL_CALL_ID_PREFIX}{tool_call_index}");
             *tool_call_index += 1;
-            output.content.push(Content::tool_call(id.clone(), fc.name.clone(), fc.args.clone()));
+            output.content.push(Content::tool_call(
+                id.clone(),
+                fc.name.clone(),
+                fc.args.clone(),
+            ));
             let content_index = output.content.len() - 1;
-            sender.push(AssistantMessageEvent::ToolCallStart { content_index, partial: output.clone() });
+            sender.push(AssistantMessageEvent::ToolCallStart {
+                content_index,
+                partial: output.clone(),
+            });
             sender.push(AssistantMessageEvent::ToolCallEnd {
                 content_index,
-                tool_call: crate::types::ToolCall { id: id.into(), name: fc.name.clone(), arguments: fc.args.clone(), thought_signature: None },
+                tool_call: crate::types::ToolCall {
+                    id: id.into(),
+                    name: fc.name.clone(),
+                    arguments: fc.args.clone(),
+                    thought_signature: None,
+                },
                 partial: output.clone(),
             });
         } else if let Some(text) = &part.text {
             if part.thought == Some(true) {
-                handle_reasoning_delta(ReasoningDelta { text, signature: THOUGHT_SIGNATURE }, output, sender, current_block);
+                handle_reasoning_delta(
+                    ReasoningDelta {
+                        text,
+                        signature: THOUGHT_SIGNATURE,
+                    },
+                    output,
+                    sender,
+                    current_block,
+                );
             } else {
                 handle_text_delta(text, output, sender, current_block);
             }
@@ -306,30 +378,47 @@ mod tests {
 
     fn make_model(reasoning: bool) -> Model<GoogleGenerativeAi> {
         Model {
-            id: "gemini-2.5-flash".into(), name: "Gemini 2.5 Flash".into(),
-            api: GoogleGenerativeAi, provider: Provider::Known(KnownProvider::Google),
+            id: "gemini-2.5-flash".into(),
+            name: "Gemini 2.5 Flash".into(),
+            api: GoogleGenerativeAi,
+            provider: Provider::Known(KnownProvider::Google),
             base_url: "https://generativelanguage.googleapis.com/v1beta".into(),
-            reasoning, input: vec![InputType::Text, InputType::Image],
-            cost: ModelCost { input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0 },
-            context_window: 1_048_576, max_tokens: 65_536, headers: None, compat: None,
+            reasoning,
+            input: vec![InputType::Text, InputType::Image],
+            cost: ModelCost {
+                input: 0.0,
+                output: 0.0,
+                cache_read: 0.0,
+                cache_write: 0.0,
+            },
+            context_window: 1_048_576,
+            max_tokens: 65_536,
+            headers: None,
+            compat: None,
         }
     }
 
     fn make_context() -> Context {
         Context {
             system_prompt: Some("You are concise".into()),
-            messages: vec![Message::User(UserMessage { content: UserContent::Text("Hello".into()), timestamp: 0 })],
+            messages: vec![Message::User(UserMessage {
+                content: UserContent::Text("Hello".into()),
+                timestamp: 0,
+            })],
             tools: None,
         }
     }
 
     fn make_output() -> AssistantMessage {
         AssistantMessage {
-            content: vec![], api: Api::GoogleGenerativeAi,
+            content: vec![],
+            api: Api::GoogleGenerativeAi,
             provider: Provider::Known(KnownProvider::Google),
             model: "gemini-2.5-flash".into(),
-            usage: Usage::default(), stop_reason: StopReason::Stop,
-            error_message: None, timestamp: 0,
+            usage: Usage::default(),
+            stop_reason: StopReason::Stop,
+            error_message: None,
+            timestamp: 0,
         }
     }
 
@@ -339,7 +428,13 @@ mod tests {
         let mut current_block = None;
         let mut tool_call_index: u32 = 0;
         for chunk in &chunks {
-            process_chunk(chunk, &mut output, &mut sender, &mut current_block, &mut tool_call_index);
+            process_chunk(
+                chunk,
+                &mut output,
+                &mut sender,
+                &mut current_block,
+                &mut tool_call_index,
+            );
         }
         finish_current_block(&mut current_block, &mut output, &mut sender);
         drop(sender);
@@ -349,10 +444,19 @@ mod tests {
 
     #[test]
     fn build_params_basic_format() {
-        let params = build_params(&make_model(false), &make_context(), &OpenAICompletionsOptions {
-            temperature: Some(0.7), max_tokens: Some(1024), ..Default::default()
-        });
-        assert_eq!(params["systemInstruction"]["parts"][0]["text"], "You are concise");
+        let params = build_params(
+            &make_model(false),
+            &make_context(),
+            &OpenAICompletionsOptions {
+                temperature: Some(0.7),
+                max_tokens: Some(1024),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            params["systemInstruction"]["parts"][0]["text"],
+            "You are concise"
+        );
         assert_eq!(params["contents"][0]["role"], "user");
         assert_eq!(params["generationConfig"]["temperature"], 0.7);
         assert_eq!(params["generationConfig"]["maxOutputTokens"], 1024);
@@ -361,33 +465,53 @@ mod tests {
     #[test]
     fn build_params_thinking_config() {
         let params = build_params(&make_model(true), &make_context(), &Default::default());
-        assert_eq!(params["generationConfig"]["thinkingConfig"]["includeThoughts"], true);
+        assert_eq!(
+            params["generationConfig"]["thinkingConfig"]["includeThoughts"],
+            true
+        );
     }
 
     #[test]
     fn build_params_no_thinking_for_non_reasoning() {
         let params = build_params(&make_model(false), &make_context(), &Default::default());
-        assert!(params.get("generationConfig").and_then(|gc| gc.get("thinkingConfig")).is_none());
+        assert!(params
+            .get("generationConfig")
+            .and_then(|gc| gc.get("thinkingConfig"))
+            .is_none());
     }
 
     #[test]
     fn build_params_tools() {
         let ctx = Context {
-            system_prompt: None, tools: Some(vec![Tool::new("get_weather", "Get weather", json!({"type": "object"}))]),
-            messages: vec![Message::User(UserMessage { content: UserContent::Text("t".into()), timestamp: 0 })],
+            system_prompt: None,
+            tools: Some(vec![Tool::new(
+                "get_weather",
+                "Get weather",
+                json!({"type": "object"}),
+            )]),
+            messages: vec![Message::User(UserMessage {
+                content: UserContent::Text("t".into()),
+                timestamp: 0,
+            })],
         };
         let params = build_params(&make_model(false), &ctx, &Default::default());
-        assert_eq!(params["tools"][0]["functionDeclarations"][0]["name"], "get_weather");
+        assert_eq!(
+            params["tools"][0]["functionDeclarations"][0]["name"],
+            "get_weather"
+        );
     }
 
     #[test]
     fn text_chunk_emits_text_events() {
         let chunk: StreamChunk = serde_json::from_value(json!({
             "candidates": [{ "content": { "parts": [{ "text": "Hello world" }] } }]
-        })).unwrap();
+        }))
+        .unwrap();
         let (events, output) = process_chunks(vec![chunk]);
         assert!(matches!(events[0], AssistantMessageEvent::TextStart { .. }));
-        assert!(matches!(&output.content[0], Content::Text { inner } if inner.text == "Hello world"));
+        assert!(
+            matches!(&output.content[0], Content::Text { inner } if inner.text == "Hello world")
+        );
     }
 
     #[test]
@@ -396,8 +520,13 @@ mod tests {
             "candidates": [{ "content": { "parts": [{ "text": "Let me think...", "thought": true }] } }]
         })).unwrap();
         let (events, output) = process_chunks(vec![chunk]);
-        assert!(matches!(events[0], AssistantMessageEvent::ThinkingStart { .. }));
-        assert!(matches!(&output.content[0], Content::Thinking { inner } if inner.thinking == "Let me think..."));
+        assert!(matches!(
+            events[0],
+            AssistantMessageEvent::ThinkingStart { .. }
+        ));
+        assert!(
+            matches!(&output.content[0], Content::Thinking { inner } if inner.thinking == "Let me think...")
+        );
     }
 
     #[test]
@@ -406,10 +535,18 @@ mod tests {
             "candidates": [{ "content": { "parts": [{ "functionCall": { "name": "get_weather", "args": { "city": "Tokyo" } } }] } }]
         })).unwrap();
         let (events, output) = process_chunks(vec![chunk]);
-        assert!(matches!(events[0], AssistantMessageEvent::ToolCallStart { .. }));
-        assert!(matches!(events[1], AssistantMessageEvent::ToolCallEnd { .. }));
+        assert!(matches!(
+            events[0],
+            AssistantMessageEvent::ToolCallStart { .. }
+        ));
+        assert!(matches!(
+            events[1],
+            AssistantMessageEvent::ToolCallEnd { .. }
+        ));
         assert_eq!(output.stop_reason, StopReason::ToolUse);
-        assert!(matches!(&output.content[0], Content::ToolCall { inner } if inner.name == "get_weather"));
+        assert!(
+            matches!(&output.content[0], Content::ToolCall { inner } if inner.name == "get_weather")
+        );
     }
 
     #[test]
@@ -436,9 +573,13 @@ mod tests {
     fn assistant_replay_omits_thinking() {
         let assistant = AssistantMessage {
             content: vec![Content::thinking("reasoning"), Content::text("answer")],
-            api: Api::GoogleGenerativeAi, provider: Provider::Known(KnownProvider::Google),
-            model: "gemini-2.5-flash".into(), usage: Usage::default(),
-            stop_reason: StopReason::Stop, error_message: None, timestamp: 0,
+            api: Api::GoogleGenerativeAi,
+            provider: Provider::Known(KnownProvider::Google),
+            model: "gemini-2.5-flash".into(),
+            usage: Usage::default(),
+            stop_reason: StopReason::Stop,
+            error_message: None,
+            timestamp: 0,
         };
         let converted = convert_assistant_message(&assistant).unwrap();
         let parts = converted["parts"].as_array().unwrap();

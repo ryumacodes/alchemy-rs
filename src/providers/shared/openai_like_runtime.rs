@@ -228,8 +228,6 @@ where
     Ok(())
 }
 
-/// SSE stream processor for APIs that terminate via connection close
-/// rather than sending a `[DONE]` sentinel.
 pub(crate) async fn process_sse_stream_no_done<TChunk, F>(
     response: reqwest::Response,
     mut on_chunk: F,

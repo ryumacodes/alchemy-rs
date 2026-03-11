@@ -152,12 +152,25 @@ fn build_params(
 
     if let Some(tc) = &options.tool_choice {
         use super::openai_completions::ToolChoice;
-        let mode = match tc {
-            ToolChoice::None => "NONE",
-            ToolChoice::Required => "ANY",
-            ToolChoice::Auto | ToolChoice::Function { .. } => "AUTO",
-        };
-        params["toolConfig"] = json!({ "functionCallingConfig": { "mode": mode } });
+        match tc {
+            ToolChoice::Function { name } => {
+                params["toolConfig"] = json!({
+                    "functionCallingConfig": {
+                        "mode": "ANY",
+                        "allowedFunctionNames": [name],
+                    }
+                });
+            }
+            _ => {
+                let mode = match tc {
+                    ToolChoice::None => "NONE",
+                    ToolChoice::Required => "ANY",
+                    ToolChoice::Auto => "AUTO",
+                    ToolChoice::Function { .. } => unreachable!(),
+                };
+                params["toolConfig"] = json!({ "functionCallingConfig": { "mode": mode } });
+            }
+        }
     }
 
     params
@@ -240,6 +253,21 @@ fn convert_tool_result(result: &crate::types::ToolResultMessage) -> serde_json::
 struct StreamChunk {
     candidates: Option<Vec<Candidate>>,
     usage_metadata: Option<UsageMetadata>,
+    prompt_feedback: Option<PromptFeedback>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PromptFeedback {
+    block_reason: Option<String>,
+    safety_ratings: Option<Vec<SafetyRating>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SafetyRating {
+    category: Option<String>,
+    probability: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -295,6 +323,10 @@ fn process_chunk(
             total_tokens: usage.total_token_count.unwrap_or(input + out),
             cost: Cost::default(),
         };
+    }
+
+    if handle_prompt_feedback(chunk, output) {
+        return;
     }
 
     let Some(candidate) = chunk.candidates.as_ref().and_then(|c| c.first()) else {
@@ -358,12 +390,54 @@ fn process_chunk(
     }
 }
 
+fn handle_prompt_feedback(chunk: &StreamChunk, output: &mut AssistantMessage) -> bool {
+    let Some(feedback) = &chunk.prompt_feedback else {
+        return false;
+    };
+    let Some(reason) = &feedback.block_reason else {
+        return false;
+    };
+    output.stop_reason = StopReason::Error;
+    let ratings_info = feedback
+        .safety_ratings
+        .as_ref()
+        .map(|ratings| {
+            ratings
+                .iter()
+                .map(|r| {
+                    format!(
+                        "{}:{}",
+                        r.category.as_deref().unwrap_or("unknown"),
+                        r.probability.as_deref().unwrap_or("unknown")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
+    output.error_message = Some(if ratings_info.is_empty() {
+        format!("Prompt blocked: {reason}")
+    } else {
+        format!("Prompt blocked: {reason} (safety ratings: {ratings_info})")
+    });
+    true
+}
+
 fn map_stop_reason(reason: &str) -> StopReason {
     match reason {
         "STOP" => StopReason::Stop,
         "MAX_TOKENS" => StopReason::Length,
-        "SAFETY" | "RECITATION" | "OTHER" => StopReason::Error,
-        _ => StopReason::Stop,
+        "SAFETY"
+        | "RECITATION"
+        | "OTHER"
+        | "BLOCKLIST"
+        | "PROHIBITED_CONTENT"
+        | "SPII"
+        | "MALFORMED_FUNCTION_CALL"
+        | "UNEXPECTED_TOOL_CALL"
+        | "TOO_MANY_TOOL_CALLS"
+        | "MISSING_THOUGHT_SIGNATURE" => StopReason::Error,
+        _ => StopReason::Error,
     }
 }
 

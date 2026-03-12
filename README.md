@@ -158,10 +158,7 @@ async fn main() -> alchemy_llm::Result<()> {
 ## Documentation
 
 - [docs/README.md](./docs/README.md) - Documentation index
-- [docs/providers/minimax.md](./docs/providers/minimax.md) - MiniMax provider guide
-- [docs/providers/zai.md](./docs/providers/zai.md) - z.ai GLM provider guide
-- [docs/api/lib.md](./docs/api/lib.md) - Public API surface
-- [docs/utils/transform.md](./docs/utils/transform.md) - Message transformation guide
+- [docs/providers/architecture.md](./docs/providers/architecture.md) - Provider architecture contract for unified thinking, replay fidelity, and stream normalization
 
 ## Development
 

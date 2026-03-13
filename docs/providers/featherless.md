@@ -16,6 +16,39 @@ That means:
 - callers can target `KnownProvider::Featherless` directly
 - the implementation reuses the shared OpenAI-compatible request/stream path underneath
 
+## Quick Start
+
+```rust
+use alchemy_llm::{featherless_model, stream};
+use alchemy_llm::types::{AssistantMessageEvent, Context, Message, UserContent, UserMessage};
+use futures::StreamExt;
+
+#[tokio::main]
+async fn main() -> alchemy_llm::Result<()> {
+    let model = featherless_model("moonshotai/Kimi-K2.5");
+    let context = Context {
+        system_prompt: None,
+        messages: vec![Message::User(UserMessage {
+            content: UserContent::Text("Hello from Featherless".to_string()),
+            timestamp: 0,
+        })],
+        tools: None,
+    };
+
+    let mut stream = stream(&model, &context, None)?;
+
+    while let Some(event) = stream.next().await {
+        if let AssistantMessageEvent::TextDelta { delta, .. } = event {
+            print!("{}", delta);
+        }
+    }
+
+    Ok(())
+}
+```
+
+Set `FEATHERLESS_API_KEY` before calling `stream(...)` or `complete(...)`.
+
 ## Constructor
 
 Use the generic model helper:
@@ -30,9 +63,25 @@ The helper returns `Model<OpenAICompletions>` with:
 
 - provider: `KnownProvider::Featherless`
 - base URL: `https://api.featherless.ai/v1/chat/completions`
+- default context window: `128_000`
+- default max output tokens: `16_384`
+- reasoning: `false`
 - default input type: text
 
 Because Featherless exposes a large dynamic catalog, the helper accepts the model id directly instead of providing one function per catalog entry.
+
+## Environment and Request Flow
+
+Authentication is resolved through the normal provider environment lookup:
+
+- `KnownProvider::Featherless`
+  -> `FEATHERLESS_API_KEY`
+  -> `Authorization: Bearer ...` on the shared OpenAI-compatible request path
+
+At the top-level API, Featherless uses the same entry points as other providers:
+
+- `stream(&model, &context, None)`
+- `complete(&model, &context, None)`
 
 ## Authentication
 
@@ -57,6 +106,18 @@ Current compatibility defaults are:
 - developer-role system prompts remain enabled
 - reasoning-effort remains enabled when the model is marked as reasoning-capable
 
+## Reasoning and Streaming Notes
+
+Featherless stays on the shared OpenAI-compatible streaming implementation, including the common normalization path for text, tool calls, and reasoning blocks.
+
+If a model emits reasoning fields, the runtime currently recognizes the same OpenAI-like signatures already handled by the shared path:
+
+- `reasoning_content`
+- `reasoning`
+- `reasoning_text`
+
+Those are normalized into the crate's shared thinking content/events without adding a Featherless-only public API.
+
 ## Live Validation Notes
 
 The following behaviors were validated against the live Featherless API during implementation:
@@ -80,7 +141,16 @@ In particular:
 - context length and max completion limits vary by model
 - reasoning availability varies by model
 
-If you need exact limits, fetch the Featherless model catalog and override the returned `Model` metadata accordingly.
+If you need exact limits, fetch the Featherless model catalog and override the returned `Model` metadata accordingly. A typical override looks like:
+
+```rust
+use alchemy_llm::featherless_model;
+
+let mut model = featherless_model("moonshotai/Kimi-K2.5");
+model.context_window = 262_144;
+model.max_tokens = 32_768;
+model.reasoning = true;
+```
 
 ## Headers
 
@@ -90,6 +160,15 @@ If you need provider-specific headers, use the existing extension points:
 - `OpenAICompletionsOptions.headers`
 
 No Featherless-specific public abstraction is required for this.
+
+## Files to Reference
+
+Implementation and integration points live in:
+
+- `src/models/featherless.rs`
+- `src/providers/openai_completions.rs`
+- `src/providers/env.rs`
+- `src/stream/mod.rs`
 
 ## Related Docs
 

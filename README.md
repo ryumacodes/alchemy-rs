@@ -106,11 +106,12 @@ async fn main() -> alchemy_llm::Result<()> {
 
 ### Featherless Quick Example
 
-Featherless is exposed as a first-class provider in the same abstraction layer while reusing the shared OpenAI-compatible runtime underneath.
+Featherless is available as a first-class provider identity while reusing the shared OpenAI-compatible runtime underneath. The public API stays the same: build a `Model<OpenAICompletions>`, then call `stream(...)` or `complete(...)`.
 
 ```rust
 use alchemy_llm::{featherless_model, stream};
-use alchemy_llm::types::{Context, Message, UserContent, UserMessage};
+use alchemy_llm::types::{AssistantMessageEvent, Context, Message, UserContent, UserMessage};
+use futures::StreamExt;
 
 #[tokio::main]
 async fn main() -> alchemy_llm::Result<()> {
@@ -124,12 +125,28 @@ async fn main() -> alchemy_llm::Result<()> {
         tools: None,
     };
 
-    let _stream = stream(&model, &context, None)?;
+    let mut stream = stream(&model, &context, None)?;
+
+    while let Some(event) = stream.next().await {
+        if let AssistantMessageEvent::TextDelta { delta, .. } = event {
+            print!("{}", delta);
+        }
+    }
+
     Ok(())
 }
 ```
 
-Set `FEATHERLESS_API_KEY` in your environment. If you have model-specific limits from `GET /v1/models`, you can override the returned model metadata before calling `stream(...)`.
+Set `FEATHERLESS_API_KEY` in your environment.
+
+The helper returns a default `Model<OpenAICompletions>` with:
+
+- provider: `KnownProvider::Featherless`
+- base URL: `https://api.featherless.ai/v1/chat/completions`
+- default context window: `128_000`
+- default max output tokens: `16_384`
+
+Because Featherless exposes a dynamic catalog, you should treat those limits as safe defaults. If you fetch exact model metadata from `GET /v1/models`, override the returned `Model` fields before calling `stream(...)` or `complete(...)`.
 
 ## Latest Release
 

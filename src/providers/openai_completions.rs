@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+#[cfg(test)]
+use super::shared::finish_current_block;
 use super::shared::{
     convert_messages, convert_tools, handle_reasoning_delta, handle_text_delta, handle_tool_calls,
     initialize_output, map_stop_reason, push_stream_error, run_openai_like_stream_without_state,
@@ -363,13 +365,14 @@ struct StreamDelta {
 mod tests {
     use super::*;
     use crate::test_helpers::{
-        assert_streaming_final_message_shape, build_final_message_shape_sse_body,
-        ExpectedFinalMessageShape,
+        assert_final_message_shape, build_final_message_shape_chunks, ExpectedFinalMessageShape,
     };
     use crate::types::{
         Context, InputType, MaxTokensField, Message, ModelCost, StopReason, UserContent,
         UserMessage,
     };
+    use futures::executor::block_on;
+    use futures::StreamExt;
     use serde_json::json;
 
     fn make_test_model(
@@ -397,6 +400,29 @@ mod tests {
             headers: None,
             compat: None,
         }
+    }
+
+    fn process_chunks_for_test(
+        model: &Model<OpenAICompletions>,
+        chunks: Vec<StreamChunk>,
+    ) -> AssistantMessage {
+        let (mut stream, mut sender) = AssistantMessageEventStream::new();
+        let mut output = initialize_output(
+            Api::OpenAICompletions,
+            model.provider.clone(),
+            model.id.clone(),
+        );
+        let mut current_block = None;
+
+        for chunk in chunks {
+            process_chunk(&chunk, &mut output, &mut sender, &mut current_block);
+        }
+
+        finish_current_block(&mut current_block, &mut output, &mut sender);
+        drop(sender);
+
+        let _events = block_on(async move { stream.by_ref().collect::<Vec<_>>().await });
+        output
     }
 
     #[test]
@@ -482,30 +508,21 @@ mod tests {
         assert_eq!(params["messages"][0]["role"], json!("system"));
     }
 
-    #[tokio::test]
-    async fn stream_featherless_openai_compatible_runtime_returns_expected_message_shape() {
+    #[test]
+    fn stream_featherless_openai_compatible_runtime_returns_expected_message_shape() {
         let model = make_test_model(
             "moonshotai/Kimi-K2.5",
             "Kimi K2.5",
             KnownProvider::Featherless,
             "https://api.featherless.ai/v1/chat/completions",
         );
-        let context = Context::default();
-        let options = OpenAICompletionsOptions {
-            api_key: Some("test-key".to_string()),
-            ..OpenAICompletionsOptions::default()
-        };
-        let sse_body = build_final_message_shape_sse_body(json!({
+        let chunks = build_final_message_shape_chunks::<StreamChunk>(json!({
             "reasoning": "thinking"
         }));
+        let result = process_chunks_for_test(&model, chunks);
 
-        assert_streaming_final_message_shape(
-            model,
-            context,
-            options,
-            sse_body,
-            "/v1/chat/completions",
-            stream_openai_completions,
+        assert_final_message_shape(
+            &result,
             ExpectedFinalMessageShape {
                 api: Api::OpenAICompletions,
                 provider: Provider::Known(KnownProvider::Featherless),
@@ -513,7 +530,6 @@ mod tests {
                 stop_reason: StopReason::Stop,
                 total_tokens: 15,
             },
-        )
-        .await;
+        );
     }
 }

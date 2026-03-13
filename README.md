@@ -4,39 +4,48 @@
 [![Documentation](https://docs.rs/alchemy-llm/badge.svg)](https://docs.rs/alchemy-llm)
 [![License: MIT](https://img.shields.io/crates/l/alchemy-llm.svg)](https://opensource.org/licenses/MIT)
 
-A unified LLM API abstraction layer in Rust that supports 13+ providers through a consistent interface.
+A unified LLM API abstraction layer in Rust focused on a consistent streaming interface across the providers that are implemented today.
 
 > **Warning:** This project is in early development (v0.1.x). APIs may change without notice. Not recommended for production use yet.
+>
+> **Current status:** the crate ships first-class streaming implementations for **OpenAI-compatible Completions**, **MiniMax Completions**, and **z.ai GLM Completions**. Additional provider identities exist in the type system, but several Rust runtime ports are still in progress.
 
 ![Alchemy-rs](/assets/alchemy-rs-readme.png)
 
 **Heavily inspired by and ported from:** [pi-mono/packages/ai](https://github.com/badlogic/pi-mono/tree/main/packages/ai)
 
-## Supported Providers
+## Current Provider Status
 
-- **Anthropic** (Claude)
-- **OpenAI** (GPT-4, GPT-3.5)
-- **Featherless** (OpenAI-compatible catalog provider)
-- **Google** (Gemini)
-- **AWS Bedrock**
-- **Mistral**
+### Implemented today
+
+- **OpenAI-compatible Completions**
+  - **OpenAI**
+  - **OpenRouter**
+  - **Featherless**
+  - other compatible endpoints can also be used by manually constructing a `Model<OpenAICompletions>`
 - **MiniMax** (Global)
 - **MiniMax CN**
+- **z.ai** (GLM)
+
+### Still being ported
+
+These provider identities are present in the crate surface, but should be treated as in-progress until dedicated runtime implementations land:
+
+- **Anthropic** (Claude)
+- **Google** (Gemini / Vertex)
+- **AWS Bedrock**
 - **xAI** (Grok)
 - **Groq**
 - **Cerebras**
-- **OpenRouter**
-- **z.ai** (GLM)
-
-> Current first-class streaming implementations in Rust: **OpenAI-compatible Completions** (including **OpenAI**, **OpenRouter**, and **Featherless**), **MiniMax Completions**, and **z.ai GLM Completions**. Other provider APIs are being ported incrementally.
+- **Mistral**
 
 ## Features
 
-- **Streaming-first** - All providers use async streams
+- **Streaming-first** - Implemented providers use async streams
 - **Type-safe** - Leverages Rust's type system
 - **Provider-agnostic** - Switch providers without code changes
-- **Tool calling** - Function/tool support across providers
-- **Message transformation** - Cross-provider message compatibility
+- **Tool calling** - Function/tool support across implemented streaming paths
+- **Message transformation** - Cross-provider message compatibility primitives
 
 ## Installation
 
@@ -155,8 +164,10 @@ Because Featherless exposes a dynamic catalog, you should treat those limits as 
 - Current version: `0.1.8`
 - Release notes: [CHANGELOG.md](./CHANGELOG.md#018---2026-03-13)
 - Highlights:
-  - Consolidated shared OpenAI-like request/stream runtime helpers across OpenAI-compatible, MiniMax, and z.ai providers
-  - Deduplicated stream dispatch tests and enum string-mapping boilerplate while preserving behavior
+  - Added first-class Featherless provider integration on the shared OpenAI-compatible path
+  - Added `featherless_model(...)` and `FEATHERLESS_API_KEY` environment lookup support
+  - OpenAI-compatible compatibility detection now recognizes Featherless-specific defaults such as `max_tokens`
+
 ## Setup
 
 1. **Clone the repository**
@@ -181,24 +192,13 @@ Because Featherless exposes a dynamic catalog, you should treat those limits as 
    cargo test
    ```
 
-5. **Run the example**
-   ```bash
-   cargo run --example api_lifecycle
-   ```
+### Notes on examples
 
-### Examples
+Public example binaries are still being rebuilt. For now, the most accurate usage references are:
 
-| Example | Description |
-|---------|-------------|
-| `api_lifecycle` | Full API lifecycle demonstration |
-| `simple_chat` | Basic chat with GPT-4o-mini |
-| `tool_calling` | Tool/function calling with weather API |
-| `minimax_live_reasoning_split` | Live MiniMax stream with `reasoning_split` enabled |
-| `minimax_live_inline_think` | Live MiniMax stream exercising `<think>` fallback parsing |
-| `minimax_live_usage_chunk` | Live MiniMax final message + usage summary |
-| `zai_glm_simple_chat` | Live z.ai GLM chat with thinking/text event output |
-| `zai_glm_tool_call_smoke` | Live z.ai GLM tool-call smoke for unified tool events |
-| `tool_call_unified_types_smoke` | Cross-provider typed tool-call stream/output smoke |
+- the Quick Start snippets in this README
+- provider-specific docs under [`docs/providers/`](./docs/providers)
+- unit and integration-style tests under `src/providers/`, `src/stream/`, and related modules
 
 ## Documentation
 

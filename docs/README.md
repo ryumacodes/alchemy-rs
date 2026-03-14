@@ -1,34 +1,25 @@
 ---
-summary: "Documentation index for Alchemy crate guides, provider docs, and API references"
+summary: "Documentation index for provider architecture and future crate guides"
 read_when:
-  - You need a starting point for project documentation
-  - You want to find provider-specific usage guides
-  - You want to understand the latest documented feature set
+  - You want the starting point for project documentation
+  - You are adding a new provider implementation
+  - You need the unified thinking/replay contract
 ---
 
 # Alchemy Documentation Index
 
 ## Start Here
 
-- [../README.md](../README.md) - Project overview, installation, and quick start
-- [api/lib.md](./api/lib.md) - Public API exports from `src/lib.rs`
-- [api/error.md](./api/error.md) - Error and `Result` contract
+- [providers/architecture.md](./providers/architecture.md) - Provider implementation contract for unified thinking, replay fidelity, and stream normalization
+- [providers/featherless.md](./providers/featherless.md) - Featherless first-class provider notes for the shared OpenAI-compatible path
 
-## Provider Guides
+## Notes
 
-- [providers/minimax.md](./providers/minimax.md) - First-class MiniMax provider (global + CN)
-- [providers/zai.md](./providers/zai.md) - First-class z.ai GLM provider
+This docs tree is being rebuilt incrementally on `main`.
 
-## Utilities
+The provider architecture document is the source of truth for how new providers should:
 
-- [utils/transform.md](./utils/transform.md) - Cross-provider conversation transformation
-
-## Latest Release (0.1.7)
-
-The latest published crate release focuses on shared OpenAI-like runtime consolidation:
-
-- Deduplicated request/stream orchestration helpers across OpenAI-compatible, MiniMax, and z.ai providers
-- Refactored shared stream block handling for interleaved reasoning/content/tool-call sequences
-- Reduced duplicate test and enum string-mapping boilerplate while preserving behavior
-
-For release details, see [../CHANGELOG.md](../CHANGELOG.md#017---2026-03-05).
+- normalize reasoning into `Content::Thinking`
+- preserve same-provider replay fidelity
+- use shared stream block helpers
+- handle provider-native thought signatures when required

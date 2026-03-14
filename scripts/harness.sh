@@ -27,9 +27,9 @@ run_step() {
     printf '✗ %s\n' "$step_name"
     printf '  command: %s\n' "$*"
     printf '  log: %s\n' "$log_file"
-    printf '--- last %s lines ---\n' "$TAIL_LINES"
+    printf '%s\n' "--- last ${TAIL_LINES} lines ---"
     tail -n "$TAIL_LINES" "$log_file" || true
-    printf '--- end ---\n'
+    printf '%s\n' '--- end ---'
     exit 1
 }
 

@@ -218,6 +218,9 @@ fn convert_assistant_message(assistant: &AssistantMessage) -> Option<serde_json:
         .content
         .iter()
         .filter_map(|c| match c {
+            Content::Thinking { inner } if !inner.thinking.is_empty() => {
+                Some(json!({ "text": inner.thinking, "thought": true }))
+            }
             Content::Text { inner } if !inner.text.is_empty() => {
                 Some(json!({ "text": inner.text }))
             }
@@ -644,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn assistant_replay_omits_thinking() {
+    fn assistant_replay_preserves_thinking() {
         let assistant = AssistantMessage {
             content: vec![Content::thinking("reasoning"), Content::text("answer")],
             api: Api::GoogleGenerativeAi,
@@ -657,7 +660,10 @@ mod tests {
         };
         let converted = convert_assistant_message(&assistant).unwrap();
         let parts = converted["parts"].as_array().unwrap();
-        assert_eq!(parts.len(), 1);
-        assert_eq!(parts[0]["text"], "answer");
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0]["text"], "reasoning");
+        assert_eq!(parts[0]["thought"], true);
+        assert_eq!(parts[1]["text"], "answer");
+        assert!(parts[1].get("thought").is_none());
     }
 }

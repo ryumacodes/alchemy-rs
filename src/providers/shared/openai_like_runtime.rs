@@ -208,7 +208,7 @@ where
                 continue;
             }
 
-            if let Some(data) = line.strip_prefix("data: ") {
+            if let Some(data) = sse_field_value(&line, "data") {
                 if data == "[DONE]" {
                     done_received = true;
                     break;
@@ -252,12 +252,12 @@ where
                 continue;
             }
 
-            if let Some(event_type) = line.strip_prefix("event: ") {
+            if let Some(event_type) = sse_field_value(&line, "event") {
                 current_event_type = event_type.to_string();
                 continue;
             }
 
-            if let Some(data) = line.strip_prefix("data: ") {
+            if let Some(data) = sse_field_value(&line, "data") {
                 let data = data.trim();
                 if data == "[DONE]" {
                     break;
@@ -273,9 +273,15 @@ where
     Ok(())
 }
 
+fn sse_field_value<'a>(line: &'a str, field: &str) -> Option<&'a str> {
+    let prefix = format!("{field}:");
+    line.strip_prefix(&prefix)
+        .map(|value| value.strip_prefix(' ').unwrap_or(value))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{done_reason_from_stop_reason, require_api_key};
+    use super::{done_reason_from_stop_reason, require_api_key, sse_field_value};
     use crate::types::{KnownProvider, Provider, StopReason, StopReasonSuccess};
 
     #[test]
@@ -316,6 +322,26 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "No API key provided for provider: openai"
+        );
+    }
+
+    #[test]
+    fn sse_field_value_accepts_lines_with_or_without_space() {
+        assert_eq!(
+            sse_field_value("event: message_start", "event"),
+            Some("message_start")
+        );
+        assert_eq!(
+            sse_field_value("event:message_start", "event"),
+            Some("message_start")
+        );
+        assert_eq!(
+            sse_field_value("data: {\"ok\":true}", "data"),
+            Some("{\"ok\":true}")
+        );
+        assert_eq!(
+            sse_field_value("data:{\"ok\":true}", "data"),
+            Some("{\"ok\":true}")
         );
     }
 }

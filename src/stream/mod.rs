@@ -2,12 +2,12 @@ pub use crate::types::{AssistantMessageEventStream, EventStreamSender};
 
 use crate::error::{Error, Result};
 use crate::providers::{
-    get_env_api_key, stream_anthropic_messages, stream_minimax_completions,
+    get_env_api_key, stream_anthropic_messages, stream_kimi_messages, stream_minimax_completions,
     stream_openai_completions, stream_zai_completions, OpenAICompletionsOptions,
 };
 use crate::types::{
-    AnthropicMessages, Api, AssistantMessage, Context, MinimaxCompletions, Model,
-    OpenAICompletions, ZaiCompletions,
+    AnthropicMessages, Api, AssistantMessage, Context, KnownProvider, MinimaxCompletions, Model,
+    OpenAICompletions, Provider, ZaiCompletions,
 };
 
 /// Stream a completion from an OpenAI-compatible model.
@@ -82,11 +82,16 @@ where
         Api::AnthropicMessages => {
             let model_ptr = model as *const Model<TApi> as *const Model<AnthropicMessages>;
             let anthropic_model = unsafe { &*model_ptr };
-            Ok(stream_anthropic_messages(
-                anthropic_model,
-                context,
-                resolved_options,
-            ))
+            Ok(
+                if matches!(
+                    anthropic_model.provider,
+                    Provider::Known(KnownProvider::Kimi)
+                ) {
+                    stream_kimi_messages(anthropic_model, context, resolved_options)
+                } else {
+                    stream_anthropic_messages(anthropic_model, context, resolved_options)
+                },
+            )
         }
         Api::BedrockConverseStream => Err(Error::InvalidResponse(
             "Bedrock provider not yet implemented".to_string(),

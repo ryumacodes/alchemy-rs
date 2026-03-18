@@ -67,6 +67,7 @@ pub enum KnownProvider {
     Featherless,
     Google,
     GoogleVertex,
+    Kimi,
     OpenAI,
     Xai,
     Groq,
@@ -88,6 +89,7 @@ impl_str_mapping!(
         Featherless => "featherless",
         Google => "google",
         GoogleVertex => "google-vertex",
+        Kimi => "kimi",
         OpenAI => "openai",
         Xai => "xai",
         Groq => "groq",
@@ -183,5 +185,12 @@ mod tests {
             KnownProvider::from_str("featherless").expect("valid featherless provider variant");
         assert_eq!(parsed, KnownProvider::Featherless);
         assert_eq!(parsed.to_string(), "featherless");
+    }
+
+    #[test]
+    fn kimi_provider_round_trip() {
+        let parsed = KnownProvider::from_str("kimi").expect("valid kimi provider variant");
+        assert_eq!(parsed, KnownProvider::Kimi);
+        assert_eq!(parsed.to_string(), "kimi");
     }
 }

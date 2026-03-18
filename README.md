@@ -8,7 +8,7 @@ A unified LLM API abstraction layer in Rust focused on a consistent streaming in
 
 > **Warning:** This project is in early development (v0.1.x). APIs may change without notice. Not recommended for production use yet.
 >
-> **Current status:** the crate ships first-class streaming implementations for **OpenAI-compatible Completions**, **MiniMax Completions**, and **z.ai GLM Completions**. Additional provider identities exist in the type system, but several Rust runtime ports are still in progress.
+> **Current status:** the crate ships first-class streaming implementations for **Anthropic-style Messages**, **OpenAI-compatible Completions**, **MiniMax Completions**, and **z.ai GLM Completions**. Additional provider identities exist in the type system, but several Rust runtime ports are still in progress.
 
 ![Alchemy-rs](/assets/alchemy-rs-readme.png)
 
@@ -18,6 +18,9 @@ A unified LLM API abstraction layer in Rust focused on a consistent streaming in
 
 ### Implemented today
 
+- **Anthropic-style Messages**
+  - **Anthropic**
+  - **Kimi (Moonshot AI, coding endpoint)**
 - **OpenAI-compatible Completions**
   - **OpenAI**
   - **OpenRouter**
@@ -31,7 +34,6 @@ A unified LLM API abstraction layer in Rust focused on a consistent streaming in
 
 These provider identities are present in the crate surface, but should be treated as in-progress until dedicated runtime implementations land:
 
-- **Anthropic** (Claude)
 - **Google** (Gemini / Vertex)
 - **AWS Bedrock**
 - **xAI** (Grok)
@@ -205,6 +207,7 @@ Public example binaries are still being rebuilt. For now, the most accurate usag
 - [docs/README.md](./docs/README.md) - Documentation index
 - [docs/providers/architecture.md](./docs/providers/architecture.md) - Provider architecture contract for unified thinking, replay fidelity, and stream normalization
 - [docs/providers/featherless.md](./docs/providers/featherless.md) - Featherless as a first-class provider on the shared OpenAI-compatible path
+- [docs/providers/kimi.md](./docs/providers/kimi.md) - Kimi as a first-class provider on the shared Anthropic-style messages path
 
 ## Development
 

@@ -12,6 +12,7 @@ read_when:
 
 - [providers/architecture.md](./providers/architecture.md) - Provider implementation contract for unified thinking, replay fidelity, and stream normalization
 - [providers/featherless.md](./providers/featherless.md) - Featherless first-class provider notes for the shared OpenAI-compatible path
+- [providers/kimi.md](./providers/kimi.md) - Kimi first-class provider notes for the shared Anthropic-style messages runtime
 
 ## Notes
 

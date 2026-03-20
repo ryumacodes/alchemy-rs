@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-03-18
+
+### Added
+- First-class Kimi provider integration via `Api::AnthropicMessages` and `stream_anthropic_messages` on the shared Anthropic-like runtime
+- Built-in Kimi model constructor `kimi_k2_0711_preview()`
+- New provider docs: `docs/providers/architecture.md` and `docs/providers/kimi.md`
+- Anthropic-style provider work in PR #45 was contributed by `ryumacodes`
+
+### Changed
+- README provider status and latest-release metadata now reflect Kimi support
+- Kimi provider tests use clearer assertion structure without changing behavior
+
 ## [0.1.8] - 2026-03-13
 
 ### Added

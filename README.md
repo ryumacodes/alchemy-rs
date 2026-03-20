@@ -163,12 +163,12 @@ Because Featherless exposes a dynamic catalog, you should treat those limits as 
 
 - **Crate:** [alchemy-llm on crates.io](https://crates.io/crates/alchemy-llm)
 - **Docs:** [docs.rs/alchemy-llm](https://docs.rs/alchemy-llm)
-- Current version: `0.1.8`
-- Release notes: [CHANGELOG.md](./CHANGELOG.md#018---2026-03-13)
+- **Current version:** `0.1.9`
+- **Release notes:** [CHANGELOG.md](./CHANGELOG.md#019---2026-03-18)
 - Highlights:
-  - Added first-class Featherless provider integration on the shared OpenAI-compatible path
-  - Added `featherless_model(...)` and `FEATHERLESS_API_KEY` environment lookup support
-  - OpenAI-compatible compatibility detection now recognizes Featherless-specific defaults such as `max_tokens`
+  - Added first-class Kimi provider integration on the shared Anthropic-style Messages path
+  - Added `kimi_k2_0711_preview()` model helper and `KIMI_API_KEY` environment lookup support
+  - Added provider architecture and Kimi docs covering replay fidelity and shared runtime behavior
 
 ## Setup
 

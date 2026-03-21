@@ -114,6 +114,42 @@ pub fn minimax_cn_m2_1_highspeed() -> Model<MinimaxCompletions> {
     )
 }
 
+pub fn minimax_m2_7() -> Model<MinimaxCompletions> {
+    build_minimax_model(
+        "MiniMax-M2.7",
+        "MiniMax M2.7",
+        KnownProvider::Minimax,
+        MINIMAX_GLOBAL_BASE_URL,
+    )
+}
+
+pub fn minimax_m2_7_highspeed() -> Model<MinimaxCompletions> {
+    build_minimax_model(
+        "MiniMax-M2.7-highspeed",
+        "MiniMax M2.7 Highspeed",
+        KnownProvider::Minimax,
+        MINIMAX_GLOBAL_BASE_URL,
+    )
+}
+
+pub fn minimax_cn_m2_7() -> Model<MinimaxCompletions> {
+    build_minimax_model(
+        "MiniMax-M2.7",
+        "MiniMax M2.7 (CN)",
+        KnownProvider::MinimaxCn,
+        MINIMAX_CN_BASE_URL,
+    )
+}
+
+pub fn minimax_cn_m2_7_highspeed() -> Model<MinimaxCompletions> {
+    build_minimax_model(
+        "MiniMax-M2.7-highspeed",
+        "MiniMax M2.7 Highspeed (CN)",
+        KnownProvider::MinimaxCn,
+        MINIMAX_CN_BASE_URL,
+    )
+}
+
 pub fn minimax_cn_m2() -> Model<MinimaxCompletions> {
     build_minimax_model(
         "MiniMax-M2",
